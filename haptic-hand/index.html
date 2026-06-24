@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Haptic Hand — Computer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+      color: #fff;
+    }
+
+    canvas { display: block; position: fixed; inset: 0; }
+    video  { display: none; }
+
+    /* ---- Connection overlay ---- */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 4, 12, 0.92);
+      z-index: 20;
+      gap: 0;
+    }
+
+    #overlay h1 {
+      font-size: 1.6rem;
+      font-weight: 100;
+      letter-spacing: 0.45em;
+      color: rgba(100, 190, 255, 0.9);
+      margin-bottom: 0.4rem;
+    }
+
+    #overlay .subtitle {
+      font-size: 0.65rem;
+      letter-spacing: 0.25em;
+      color: rgba(255, 255, 255, 0.3);
+      margin-bottom: 1.8rem;
+    }
+
+    #qr-wrap {
+      background: #fff;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      line-height: 0;
+    }
+
+    #peer-id-display {
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      color: rgba(100, 190, 255, 0.7);
+      margin-bottom: 0.3rem;
+    }
+
+    #phone-url-text {
+      font-size: 0.58rem;
+      color: rgba(255, 255, 255, 0.25);
+      max-width: 340px;
+      text-align: center;
+      word-break: break-all;
+      line-height: 1.5;
+      margin-bottom: 1.4rem;
+    }
+
+    .overlay-btn {
+      padding: 0.55rem 2rem;
+      background: transparent;
+      border: 1px solid rgba(100, 190, 255, 0.45);
+      color: rgba(100, 190, 255, 0.85);
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.22em;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: background 0.2s;
+    }
+    .overlay-btn:hover { background: rgba(100, 190, 255, 0.08); }
+
+    #overlay-loader {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      color: rgba(255, 255, 255, 0.3);
+      margin-bottom: 1.8rem;
+      text-align: center;
+      line-height: 2;
+    }
+
+    /* ---- HUD ---- */
+    #hud-status {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      color: rgba(255, 255, 255, 0.25);
+      z-index: 5;
+      pointer-events: none;
+      transition: opacity 0.4s;
+    }
+
+    #hud-conn {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      font-size: 0.62rem;
+      letter-spacing: 0.14em;
+      z-index: 5;
+      pointer-events: none;
+      color: rgba(255, 80, 80, 0.65);
+      transition: color 0.3s;
+    }
+    #hud-conn.ok { color: rgba(80, 230, 140, 0.85); }
+
+    #hud-hint {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      color: rgba(255, 255, 255, 0.18);
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    #hud-touch {
+      position: fixed;
+      bottom: 44px;
+      right: 16px;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      color: rgba(255, 255, 255, 0.15);
+      z-index: 5;
+      pointer-events: none;
+      text-align: right;
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<video id="video" autoplay playsinline muted></video>
+
+<!-- ---- Connection overlay ---- -->
+<div id="overlay">
+  <h1>HAPTIC HAND</h1>
+  <p class="subtitle">hand tracking · haptic feedback</p>
+  <div id="overlay-loader">starting camera &amp; loading model…</div>
+  <div id="qr-wrap" style="display:none">
+    <canvas id="qr-canvas"></canvas>
+  </div>
+  <div id="peer-id-display"></div>
+  <div id="phone-url-text"></div>
+  <button class="overlay-btn" id="start-btn" style="display:none">START</button>
+</div>
+
+<!-- ---- HUD ---- -->
+<div id="hud-status">initializing…</div>
+<div id="hud-conn">● NO PHONE</div>
+<div id="hud-hint">H · connection panel</div>
+<div id="hud-touch"></div>
+
+<!-- Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection@2.0.1/dist/hand-pose-detection.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],
+  [0,17]
+];
+
+const FINGERTIP_IDS = [4, 8, 12, 16, 20];
+
+// Virtual objects — positions as fractions of canvas (0‒1)
+const OBJECTS = [
+  {
+    id: 'push-a',
+    label: 'PUSH',
+    kind: 'button',
+    x: 0.22, y: 0.40,
+    w: 0.13, h: 0.085,
+    color: [205, 80, 92],
+    haptic: { enter: [90], hover: null },
+    desc: 'button'
+  },
+  {
+    id: 'rough',
+    label: 'ROUGH',
+    kind: 'circle',
+    x: 0.50, y: 0.28,
+    r: 0.082,
+    color: [30, 78, 88],
+    haptic: { enter: [25], hover: [18, 12, 18, 12, 18], hoverMs: 170 },
+    desc: 'rough texture'
+  },
+  {
+    id: 'push-b',
+    label: 'TRIGGER',
+    kind: 'button',
+    x: 0.78, y: 0.40,
+    w: 0.14, h: 0.085,
+    color: [340, 78, 92],
+    haptic: { enter: [110], hover: null },
+    desc: 'button'
+  },
+  {
+    id: 'soft',
+    label: 'SOFT',
+    kind: 'circle',
+    x: 0.33, y: 0.66,
+    r: 0.085,
+    color: [285, 52, 92],
+    haptic: { enter: [120], hover: [180], hoverMs: 520 },
+    desc: 'soft surface'
+  },
+  {
+    id: 'metal',
+    label: 'METAL',
+    kind: 'circle',
+    x: 0.67, y: 0.66,
+    r: 0.082,
+    color: [185, 65, 82],
+    haptic: { enter: [35], hover: [12], hoverMs: 280 },
+    desc: 'metal surface'
+  },
+];
+
+// ============================================================
+// State
+// ============================================================
+
+let canvas, ctx, video;
+let detector = null;
+let detectedHands = [];
+let peer = null;
+let phoneConn = null;
+let overlayOpen = true;
+let appStarted = false;
+
+const objState = {};
+OBJECTS.forEach(o => {
+  objState[o.id] = { active: false, lastHapticMs: 0, glowAlpha: 0, proximity: 0 };
+});
+
+let lastTouched = '';
+let handCount = 0;
+
+// ============================================================
+// HSB → rgba helper
+// ============================================================
+
+function hsb(h, s, b, a) {
+  s /= 100; b /= 100;
+  const k = n => (n + h / 60) % 6;
+  const f = n => b * (1 - s * Math.max(0, Math.min(k(n), 4 - k(n), 1)));
+  return `rgba(${(f(5)*255)|0},${(f(3)*255)|0},${(f(1)*255)|0},${a})`;
+}
+
+// ============================================================
+// DOM helpers
+// ============================================================
+
+function setStatus(msg) {
+  document.getElementById('hud-status').textContent = msg;
+}
+
+function setLoader(msg) {
+  document.getElementById('overlay-loader').textContent = msg;
+}
+
+function setConnHUD(connected) {
+  const el = document.getElementById('hud-conn');
+  el.textContent = connected ? '● PHONE CONNECTED' : '● NO PHONE';
+  el.className = connected ? 'ok' : '';
+}
+
+// ============================================================
+// Camera + model init
+// ============================================================
+
+async function init() {
+  canvas = document.getElementById('canvas');
+  ctx    = canvas.getContext('2d');
+  video  = document.getElementById('video');
+
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  setLoader('requesting camera…');
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await new Promise(r => { video.onloadedmetadata = r; });
+    await video.play();
+  } catch (e) {
+    setLoader('camera access denied\n' + e.message);
+    return;
+  }
+
+  setLoader('loading hand model (first load may take ~10s)…');
+
+  try {
+    await tf.ready();
+    detector = await handPoseDetection.createDetector(
+      handPoseDetection.SupportedModels.MediaPipeHands,
+      { runtime: 'tfjs', modelType: 'lite', maxHands: 2 }
+    );
+  } catch (e) {
+    setLoader('model error: ' + e.message);
+    return;
+  }
+
+  setLoader('model ready · connecting to peer network…');
+  setupPeer();
+  startDetectionLoop();
+  requestAnimationFrame(drawLoop);
+}
+
+function resizeCanvas() {
+  if (!canvas) return;
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+// ============================================================
+// Detection loop (decoupled from render)
+// ============================================================
+
+async function startDetectionLoop() {
+  while (true) {
+    if (detector && video.readyState >= 2 && appStarted) {
+      try {
+        detectedHands = await detector.estimateHands(video, { flipHorizontal: true });
+        handCount = detectedHands.length;
+        setStatus(handCount > 0
+          ? `${handCount} hand${handCount > 1 ? 's' : ''} detected`
+          : 'move your hand into frame');
+      } catch (_) { /* ignore mid-load errors */ }
+    }
+    await new Promise(r => setTimeout(r, 40)); // ~25fps detection
+  }
+}
+
+// ============================================================
+// PeerJS
+// ============================================================
+
+function setupPeer() {
+  peer = new Peer(undefined, { debug: 0 });
+
+  peer.on('open', peerId => {
+    const phoneURL = buildPhoneURL(peerId);
+
+    document.getElementById('peer-id-display').textContent = 'id: ' + peerId;
+    document.getElementById('phone-url-text').textContent  = phoneURL;
+
+    QRCode.toCanvas(document.getElementById('qr-canvas'), phoneURL, {
+      width: 180, margin: 1,
+      color: { dark: '#000000', light: '#ffffff' }
+    }, () => {
+      document.getElementById('qr-wrap').style.display = 'block';
+      document.getElementById('overlay-loader').style.display = 'none';
+      document.getElementById('start-btn').style.display = 'inline-block';
+    });
+  });
+
+  peer.on('connection', conn => {
+    phoneConn = conn;
+    conn.on('open',  () => setConnHUD(true));
+    conn.on('close', () => { phoneConn = null; setConnHUD(false); });
+    conn.on('error', () => { phoneConn = null; setConnHUD(false); });
+  });
+
+  peer.on('error', e => {
+    console.warn('PeerJS error:', e.type);
+    // Still allow starting even without peer
+    document.getElementById('overlay-loader').style.display = 'none';
+    document.getElementById('start-btn').style.display = 'inline-block';
+  });
+}
+
+function buildPhoneURL(peerId) {
+  const base = window.location.href.replace(/index\.html.*$/, '');
+  return base + 'phone.html?peer=' + encodeURIComponent(peerId);
+}
+
+function sendHaptic(pattern, objectId) {
+  if (!phoneConn || !phoneConn.open) return;
+  try { phoneConn.send({ type: 'haptic', pattern, objectId }); } catch (_) {}
+}
+
+// ============================================================
+// Interaction detection
+// ============================================================
+
+function checkInteractions() {
+  const W = canvas.width, H = canvas.height;
+  const now = performance.now();
+
+  // Gather fingertip canvas positions from all detected hands
+  const tips = [];
+  for (const hand of detectedHands) {
+    for (const id of FINGERTIP_IDS) {
+      const k = hand.keypoints[id];
+      tips.push({
+        x: (k.x / (video.videoWidth  || 640)) * W,
+        y: (k.y / (video.videoHeight || 480)) * H,
+      });
+    }
+  }
+
+  let touchedLabel = '';
+
+  for (const obj of OBJECTS) {
+    const st = objState[obj.id];
+    let minDist = Infinity;
+    let touching = false;
+
+    for (const tip of tips) {
+      const dist = distToObject(tip.x, tip.y, obj, W, H);
+      minDist = Math.min(minDist, dist);
+      if (dist <= 0) touching = true;
+    }
+
+    // proximity 0 = far, 1 = contact
+    const threshold = 0.1 * Math.min(W, H);
+    st.proximity = tips.length > 0
+      ? Math.max(0, 1 - minDist / threshold)
+      : 0;
+
+    const wasActive = st.active;
+    st.active = touching;
+
+    if (touching) {
+      touchedLabel = obj.label + ' (' + obj.desc + ')';
+
+      if (!wasActive) {
+        // Entered
+        sendHaptic(obj.haptic.enter, obj.id);
+        st.lastHapticMs = now;
+      } else if (obj.haptic.hover && (now - st.lastHapticMs) > obj.haptic.hoverMs) {
+        // Continuous hover
+        sendHaptic(obj.haptic.hover, obj.id);
+        st.lastHapticMs = now;
+      }
+    }
+  }
+
+  lastTouched = touchedLabel;
+}
+
+// Returns signed distance: ≤0 means inside/touching, >0 means outside
+function distToObject(px, py, obj, W, H) {
+  if (obj.kind === 'button') {
+    const cx = obj.x * W, cy = obj.y * H;
+    const hw = (obj.w * W) / 2, hh = (obj.h * H) / 2;
+    const dx = Math.max(0, Math.abs(px - cx) - hw);
+    const dy = Math.max(0, Math.abs(py - cy) - hh);
+    return Math.sqrt(dx * dx + dy * dy);
+  } else {
+    const cx = obj.x * W, cy = obj.y * H;
+    const r  = obj.r * Math.min(W, H);
+    return Math.sqrt((px - cx) ** 2 + (py - cy) ** 2) - r;
+  }
+}
+
+// ============================================================
+// Render
+// ============================================================
+
+function drawLoop() {
+  requestAnimationFrame(drawLoop);
+
+  const W = canvas.width, H = canvas.height;
+  const t = performance.now() * 0.001;
+
+  // Background — persistent fade
+  ctx.fillStyle = 'rgba(0,4,12,0.22)';
+  ctx.fillRect(0, 0, W, H);
+
+  drawGrid(W, H);
+  drawObjects(W, H, t);
+
+  if (appStarted) {
+    checkInteractions();
+    for (const hand of detectedHands) drawHand(hand, W, H, t);
+    updateTouchHUD();
+  }
+}
+
+// ---- Grid ----
+
+function drawGrid(W, H) {
+  const step = Math.round(Math.min(W, H) * 0.055);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(30,70,160,0.09)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ---- Virtual objects ----
+
+function drawObjects(W, H, t) {
+  for (const obj of OBJECTS) {
+    const st = objState[obj.id];
+    const [h, s, b] = obj.color;
+
+    // Animate glow towards target
+    const targetGlow = st.active ? 1 : st.proximity;
+    st.glowAlpha += (targetGlow - st.glowAlpha) * 0.14;
+
+    const ga = st.glowAlpha;
+    const pulse = st.active ? (1 + 0.07 * Math.sin(t * 9)) : 1;
+
+    ctx.save();
+
+    if (obj.kind === 'button') {
+      const cx = obj.x * W, cy = obj.y * H;
+      const hw = (obj.w * W) / 2 * pulse, hh = (obj.h * H) / 2 * pulse;
+
+      // Outer glow
+      if (ga > 0.01) {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(hw, hh) * 2.5);
+        g.addColorStop(0, hsb(h, s, b, 0.35 * ga));
+        g.addColorStop(1, hsb(h, s, b, 0));
+        ctx.fillStyle = g;
+        ctx.fillRect(cx - hw * 2.5, cy - hh * 2.5, hw * 5, hh * 5);
+      }
+
+      // Body
+      ctx.fillStyle = hsb(h, s * (st.active ? 1 : 0.5), b * (st.active ? 0.35 : 0.18), 0.92);
+      roundRect(cx - hw, cy - hh, hw * 2, hh * 2, 6);
+      ctx.fill();
+
+      // Border
+      ctx.strokeStyle = hsb(h, s, b, 0.35 + 0.6 * ga);
+      ctx.lineWidth = st.active ? 2 : 1;
+      roundRect(cx - hw, cy - hh, hw * 2, hh * 2, 6);
+      ctx.stroke();
+
+      // Label
+      const fs = Math.round(Math.min(W, H) * 0.019);
+      ctx.fillStyle = hsb(h, 15, 100, 0.6 + 0.4 * ga);
+      ctx.font = `${fs}px 'Courier New'`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(obj.label, cx, cy);
+
+    } else {
+      const cx = obj.x * W, cy = obj.y * H;
+      const r  = obj.r * Math.min(W, H);
+
+      // Outer glow
+      if (ga > 0.01) {
+        const g = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 2.8);
+        g.addColorStop(0, hsb(h, s, b, 0.28 * ga));
+        g.addColorStop(1, hsb(h, s, b, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 2.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Surface gradient
+      const g2 = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.25, 0, cx, cy, r * pulse);
+      g2.addColorStop(0, hsb(h, s * 0.4, b, st.active ? 0.85 : 0.5));
+      g2.addColorStop(1, hsb(h, s, b * 0.4, st.active ? 0.75 : 0.42));
+      ctx.fillStyle = g2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * pulse, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Border
+      ctx.strokeStyle = hsb(h, s, b, 0.3 + 0.65 * ga);
+      ctx.lineWidth = st.active ? 2 : 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Surface texture pattern
+      if (obj.id === 'rough') drawRoughPattern(cx, cy, r, t, h, s, b);
+      if (obj.id === 'soft')  drawSoftPattern(cx, cy, r, t, h, s, b);
+      if (obj.id === 'metal') drawMetalPattern(cx, cy, r, t, h, s, b);
+
+      // Label below circle
+      const fs = Math.round(Math.min(W, H) * 0.016);
+      ctx.fillStyle = hsb(h, 20, 100, 0.5 + 0.45 * ga);
+      ctx.font = `${fs}px 'Courier New'`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(obj.label, cx, cy + r * pulse + 8);
+    }
+
+    ctx.restore();
+  }
+}
+
+function drawRoughPattern(cx, cy, r, t, h, s, b) {
+  ctx.save();
+  ctx.strokeStyle = hsb(h, s * 0.6, b * 0.9, 0.25);
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 16; i++) {
+    const a  = (i / 16) * Math.PI * 2 + t * 0.25;
+    // Deterministic jagged lines using sine harmonics
+    const r1 = r * (0.18 + 0.15 * Math.abs(Math.sin(i * 2.7)));
+    const r2 = r * (0.42 + 0.25 * Math.abs(Math.sin(i * 1.9 + 1.2)));
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a)        * r1, cy + Math.sin(a)        * r1);
+    ctx.lineTo(cx + Math.cos(a + 0.25) * r2, cy + Math.sin(a + 0.25) * r2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSoftPattern(cx, cy, r, t, h, s, b) {
+  ctx.save();
+  for (let i = 1; i <= 3; i++) {
+    const ir = r * i * 0.28;
+    const a  = 0.15 * Math.sin(t * 0.6 + i);
+    ctx.strokeStyle = hsb(h, s * 0.45, b, 0.12 + i * 0.04);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, ir, a, a + Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawMetalPattern(cx, cy, r, t, h, s, b) {
+  ctx.save();
+  ctx.strokeStyle = hsb(h, s * 0.5, b * 1.1, 0.18);
+  ctx.lineWidth = 1;
+  const lines = 7;
+  for (let i = 0; i < lines; i++) {
+    const off = (i / (lines - 1) - 0.5) * r * 1.6;
+    const x0 = cx - Math.sqrt(Math.max(0, r * r - off * off));
+    const x1 = cx + Math.sqrt(Math.max(0, r * r - off * off));
+    const y  = cy + off;
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ---- Hand skeleton ----
+
+function drawHand(hand, W, H, t) {
+  const vW = video.videoWidth  || 640;
+  const vH = video.videoHeight || 480;
+  const kp = hand.keypoints;
+
+  const pts = kp.map(k => ({
+    x: (k.x / vW) * W,
+    y: (k.y / vH) * H,
+  }));
+
+  ctx.save();
+
+  // Connections
+  ctx.strokeStyle = 'rgba(180,220,255,0.55)';
+  ctx.lineWidth = 2;
+  for (const [a, b] of HAND_CONNECTIONS) {
+    ctx.beginPath();
+    ctx.moveTo(pts[a].x, pts[a].y);
+    ctx.lineTo(pts[b].x, pts[b].y);
+    ctx.stroke();
+  }
+
+  // Joints
+  for (let i = 0; i < pts.length; i++) {
+    const isTip = FINGERTIP_IDS.includes(i);
+    const r = isTip ? 7 : 3.5;
+
+    if (isTip) {
+      // Check if any nearby object is active for tip colour
+      ctx.fillStyle = 'rgba(255,210,80,0.92)';
+    } else {
+      ctx.fillStyle = 'rgba(180,220,255,0.65)';
+    }
+
+    ctx.beginPath();
+    ctx.arc(pts[i].x, pts[i].y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Finger labels at tips
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '10px Courier New';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  const tipNames = ['T','I','M','R','P'];
+  FINGERTIP_IDS.forEach((id, i) => {
+    ctx.fillText(tipNames[i], pts[id].x, pts[id].y - 9);
+  });
+
+  ctx.restore();
+}
+
+// ---- Touch HUD ----
+
+function updateTouchHUD() {
+  const el = document.getElementById('hud-touch');
+  if (lastTouched) {
+    el.textContent = '▶ ' + lastTouched;
+    el.style.color = 'rgba(100,210,255,0.7)';
+  } else {
+    el.textContent = '';
+  }
+}
+
+// ============================================================
+// Canvas utilities
+// ============================================================
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y,     x + w, y + r,     r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x,     y + h, x,     y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x,     y,     x + r, y,         r);
+  ctx.closePath();
+}
+
+// ============================================================
+// UI events
+// ============================================================
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  appStarted = true;
+  overlayOpen = false;
+  document.getElementById('overlay').style.display = 'none';
+  setStatus('move your hand into frame');
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'h' || e.key === 'H') {
+    overlayOpen = !overlayOpen;
+    document.getElementById('overlay').style.display = overlayOpen ? 'flex' : 'none';
+  }
+});
+
+// ============================================================
+// Boot
+// ============================================================
+
+init();
+</script>
+</body>
+</html>

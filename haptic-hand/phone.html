@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
+  <title>Haptic Hand — Phone</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: rgba(100, 190, 255, 0.9);
+      --dim: rgba(255, 255, 255, 0.25);
+      --bg: #000408;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 2rem 1.5rem;
+      text-align: center;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 100;
+      letter-spacing: 0.45em;
+      color: var(--accent);
+      margin-bottom: 0.4rem;
+    }
+
+    .subtitle {
+      font-size: 0.62rem;
+      letter-spacing: 0.22em;
+      color: var(--dim);
+      margin-bottom: 2.5rem;
+    }
+
+    /* ---- Haptic indicator ---- */
+    #indicator {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.08);
+      background: rgba(100,190,255,0.04);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 2rem;
+      transition: background 0.1s, border-color 0.1s, box-shadow 0.1s;
+      position: relative;
+    }
+
+    #indicator.active {
+      background: rgba(100,190,255,0.18);
+      border-color: rgba(100,190,255,0.55);
+      box-shadow: 0 0 50px rgba(100,190,255,0.25), 0 0 100px rgba(100,190,255,0.1);
+    }
+
+    #indicator.active-button {
+      background: rgba(90,140,255,0.2);
+      border-color: rgba(90,140,255,0.6);
+      box-shadow: 0 0 50px rgba(90,140,255,0.3);
+    }
+
+    #indicator.active-rough {
+      background: rgba(255,160,50,0.18);
+      border-color: rgba(255,160,50,0.5);
+      box-shadow: 0 0 50px rgba(255,160,50,0.2);
+    }
+
+    #indicator.active-soft {
+      background: rgba(200,100,255,0.18);
+      border-color: rgba(200,100,255,0.5);
+      box-shadow: 0 0 50px rgba(200,100,255,0.2);
+    }
+
+    #indicator.active-metal {
+      background: rgba(50,220,210,0.16);
+      border-color: rgba(50,220,210,0.5);
+      box-shadow: 0 0 50px rgba(50,220,210,0.2);
+    }
+
+    #indicator-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.22em;
+      color: rgba(255,255,255,0.35);
+      transition: color 0.1s;
+    }
+
+    #indicator.active    #indicator-label,
+    #indicator.active-button #indicator-label,
+    #indicator.active-rough  #indicator-label,
+    #indicator.active-soft   #indicator-label,
+    #indicator.active-metal  #indicator-label {
+      color: rgba(255,255,255,0.85);
+    }
+
+    #indicator-object {
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      color: rgba(255,255,255,0.6);
+      margin-top: 0.25rem;
+      min-height: 1em;
+      transition: color 0.1s;
+    }
+
+    /* ---- Status ---- */
+    #status {
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      color: var(--dim);
+      margin-bottom: 2rem;
+      line-height: 1.8;
+      min-height: 3.2em;
+    }
+
+    /* ---- Connect form ---- */
+    #connect-form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    #peer-input {
+      width: 100%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+      padding: 0.75rem 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      border-radius: 3px;
+      text-align: center;
+    }
+    #peer-input::placeholder { color: rgba(255,255,255,0.2); }
+    #peer-input:focus { outline: none; border-color: rgba(100,190,255,0.45); }
+
+    .form-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: transparent;
+      border: 1px solid rgba(100,190,255,0.4);
+      color: rgba(100,190,255,0.9);
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.22em;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: background 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .form-btn:active { background: rgba(100,190,255,0.1); }
+
+    #test-btn {
+      border-color: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.35);
+      margin-top: 0.3rem;
+    }
+    #test-btn:active { background: rgba(255,255,255,0.05); }
+
+    /* ---- Log ---- */
+    #log {
+      margin-top: 2rem;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .log-entry {
+      font-size: 0.55rem;
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.18);
+      padding: 0.15rem 0;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ---- iOS note ---- */
+    #ios-note {
+      margin-top: 1.8rem;
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      color: rgba(255,200,80,0.4);
+      max-width: 280px;
+      line-height: 1.7;
+    }
+
+    #vibration-status {
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      margin-top: 0.4rem;
+    }
+    #vibration-status.ok  { color: rgba(80,230,140,0.6); }
+    #vibration-status.bad { color: rgba(255,100,80,0.6); }
+  </style>
+</head>
+<body>
+
+  <h1>HAPTIC HAND</h1>
+  <p class="subtitle">phone receiver</p>
+
+  <div id="indicator">
+    <div id="indicator-label">WAITING</div>
+    <div id="indicator-object"></div>
+  </div>
+
+  <div id="status">connect to the computer app<br>to receive haptic feedback</div>
+
+  <div id="connect-form">
+    <input type="text" id="peer-input"
+           placeholder="computer peer ID"
+           autocomplete="off" autocorrect="off"
+           autocapitalize="off" spellcheck="false">
+    <button class="form-btn" id="connect-btn">CONNECT</button>
+    <button class="form-btn" id="test-btn">TEST VIBRATION</button>
+  </div>
+
+  <div id="log"></div>
+
+  <div id="ios-note">
+    <div id="vibration-status"></div>
+    hold your phone while using the computer app<br>
+    your hand controls the virtual objects
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+'use strict';
+
+// ============================================================
+// State
+// ============================================================
+
+let peer = null;
+let conn = null;
+let targetPeerId = null;
+let reconnectTimer = null;
+let hapticCount = 0;
+
+// ============================================================
+// DOM refs
+// ============================================================
+
+const indicator     = document.getElementById('indicator');
+const indicatorLbl  = document.getElementById('indicator-label');
+const indicatorObj  = document.getElementById('indicator-object');
+const statusEl      = document.getElementById('status');
+const form          = document.getElementById('connect-form');
+const input         = document.getElementById('peer-input');
+const connectBtn    = document.getElementById('connect-btn');
+const testBtn       = document.getElementById('test-btn');
+const logEl         = document.getElementById('log');
+const vibStatusEl   = document.getElementById('vibration-status');
+
+// ============================================================
+// Vibration support check
+// ============================================================
+
+const hasVibration = 'vibrate' in navigator;
+
+if (hasVibration) {
+  vibStatusEl.textContent = '● vibration API available';
+  vibStatusEl.className = 'ok';
+} else {
+  vibStatusEl.textContent = '● vibration not supported (iOS Safari)';
+  vibStatusEl.className = 'bad';
+  document.getElementById('ios-note').style.color = 'rgba(255,120,80,0.5)';
+}
+
+// ============================================================
+// Haptic trigger
+// ============================================================
+
+// Object-type → indicator CSS class mapping
+const OBJ_CLASS = {
+  'push-a':  'active-button',
+  'push-b':  'active-button',
+  'rough':   'active-rough',
+  'soft':    'active-soft',
+  'metal':   'active-metal',
+};
+
+// Friendly names for display
+const OBJ_NAMES = {
+  'push-a':  'PUSH BUTTON',
+  'push-b':  'TRIGGER',
+  'rough':   'ROUGH SURFACE',
+  'soft':    'SOFT SURFACE',
+  'metal':   'METAL SURFACE',
+};
+
+function triggerHaptic(pattern, objectId) {
+  if (hasVibration) {
+    navigator.vibrate(pattern);
+  }
+
+  // Visual feedback
+  const cls = OBJ_CLASS[objectId] || 'active';
+  indicator.className = cls;
+  indicatorLbl.textContent = 'HAPTIC';
+  indicatorObj.textContent = OBJ_NAMES[objectId] || objectId || '';
+
+  const duration = Array.isArray(pattern)
+    ? pattern.reduce((a, b) => a + b, 0)
+    : pattern;
+
+  setTimeout(() => {
+    if (conn && conn.open) {
+      indicator.className = '';
+      indicatorLbl.textContent = 'CONNECTED';
+      indicatorObj.textContent = '';
+    }
+  }, duration + 120);
+
+  hapticCount++;
+  appendLog(objectId, pattern);
+}
+
+function appendLog(objectId, pattern) {
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+
+  const name = document.createElement('span');
+  name.textContent = OBJ_NAMES[objectId] || objectId || '?';
+
+  const pat = document.createElement('span');
+  pat.textContent = Array.isArray(pattern) ? '[' + pattern.join(',') + ']' : pattern;
+
+  entry.appendChild(name);
+  entry.appendChild(pat);
+  logEl.insertBefore(entry, logEl.firstChild);
+
+  // Keep at most 5 lines
+  while (logEl.children.length > 5) logEl.removeChild(logEl.lastChild);
+}
+
+// ============================================================
+// PeerJS setup
+// ============================================================
+
+function initPeer() {
+  peer = new Peer(undefined, { debug: 0 });
+
+  peer.on('open', myId => {
+    setStatus('ready\nyour id: ' + myId.slice(0, 8) + '…');
+  });
+
+  peer.on('error', e => {
+    setStatus('peer network error\n' + e.type);
+    console.warn('peer error', e);
+  });
+}
+
+function connectTo(peerId) {
+  if (!peer) return;
+  clearTimeout(reconnectTimer);
+  targetPeerId = peerId;
+
+  setStatus('connecting…');
+
+  conn = peer.connect(peerId, { reliable: true });
+
+  conn.on('open', () => {
+    setStatus('connected\nhold your phone and\nmove your hand');
+    form.style.display = 'none';
+
+    indicator.className = '';
+    indicatorLbl.textContent = 'CONNECTED';
+    indicatorObj.textContent = '';
+
+    // Confirmation buzz
+    if (hasVibration) navigator.vibrate([40, 30, 40]);
+  });
+
+  conn.on('data', data => {
+    if (data && data.type === 'haptic') {
+      triggerHaptic(data.pattern, data.objectId);
+    }
+  });
+
+  conn.on('close', () => {
+    handleDisconnect();
+  });
+
+  conn.on('error', () => {
+    handleDisconnect();
+  });
+}
+
+function handleDisconnect() {
+  conn = null;
+  indicator.className = '';
+  indicatorLbl.textContent = 'WAITING';
+  indicatorObj.textContent = '';
+  setStatus('disconnected\nauto-reconnecting in 4s…');
+  form.style.display = 'flex';
+
+  if (targetPeerId) {
+    reconnectTimer = setTimeout(() => connectTo(targetPeerId), 4000);
+  }
+}
+
+function setStatus(msg) {
+  statusEl.textContent = msg;
+}
+
+// ============================================================
+// UI events
+// ============================================================
+
+connectBtn.addEventListener('click', () => {
+  const id = input.value.trim();
+  if (!id) return;
+  connectTo(id);
+});
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter') connectBtn.click();
+});
+
+testBtn.addEventListener('click', () => {
+  if (hasVibration) {
+    navigator.vibrate([50, 30, 100, 30, 50]);
+    indicator.className = 'active';
+    indicatorLbl.textContent = 'TEST';
+    indicatorObj.textContent = 'vibrating…';
+    setTimeout(() => {
+      indicator.className = '';
+      indicatorLbl.textContent = conn && conn.open ? 'CONNECTED' : 'WAITING';
+      indicatorObj.textContent = '';
+    }, 300);
+  } else {
+    indicatorLbl.textContent = 'NO VIBRATE';
+    indicator.className = 'active';
+    setTimeout(() => {
+      indicator.className = '';
+      indicatorLbl.textContent = 'WAITING';
+    }, 800);
+  }
+});
+
+// ============================================================
+// Auto-connect from URL param
+// ============================================================
+
+const urlParams = new URLSearchParams(window.location.search);
+const urlPeer   = urlParams.get('peer');
+
+if (urlPeer) {
+  input.value = urlPeer;
+}
+
+// ============================================================
+// Boot
+// ============================================================
+
+initPeer();
+
+// Auto-connect slightly after peer is ready
+if (urlPeer) {
+  setTimeout(() => connectTo(urlPeer), 1200);
+}
+</script>
+</body>
+</html>
