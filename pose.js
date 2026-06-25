@@ -99,17 +99,53 @@ function poseToBodyState(kp, W, H, prev) {
 
 // ---------- init ------------------------------------------------------------
 
+async function startCameraStream(video, deviceId) {
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(t => t.stop());
+  }
+  const constraints = {
+    video: deviceId
+      ? { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
+      : { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+  };
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  video.srcObject = stream;
+  await new Promise(resolve => { video.onloadedmetadata = resolve; });
+  await video.play();
+  return stream.getVideoTracks()[0].getSettings().deviceId;
+}
+
+async function populateCameraSelect(video, activeId) {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const videoDevices = devices.filter(d => d.kind === 'videoinput');
+  if (videoDevices.length < 2) return;
+
+  const select   = document.getElementById('camera-select');
+  const controls = document.getElementById('camera-controls');
+
+  select.innerHTML = '';
+  videoDevices.forEach((d, i) => {
+    const opt = document.createElement('option');
+    opt.value = d.deviceId;
+    opt.textContent = d.label || `Camera ${i + 1}`;
+    if (d.deviceId === activeId) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  controls.style.display = 'block';
+
+  select.addEventListener('change', async () => {
+    await startCameraStream(video, select.value);
+  });
+}
+
 (async function initPose() {
   const video  = document.getElementById('video');
   const status = document.getElementById('status');
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-    });
-    video.srcObject = stream;
-    await new Promise(resolve => { video.onloadedmetadata = resolve; });
-    await video.play();
+    const activeId = await startCameraStream(video);
+    await populateCameraSelect(video, activeId);
 
     await tf.ready();
 

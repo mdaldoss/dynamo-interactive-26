@@ -76,6 +76,33 @@
       letter-spacing: 0.25em;
       opacity: 0.5;
     }
+    #camera-controls {
+      display: none;
+      margin-top: 1.8rem;
+    }
+    #camera-select {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(160, 200, 255, 0.55);
+      font-family: 'Courier New', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.15em;
+      padding: 0.45rem 0.9rem;
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      text-align: center;
+    }
+    #camera-select:hover {
+      border-color: rgba(160, 200, 255, 0.35);
+      color: rgba(160, 200, 255, 0.8);
+    }
+    #camera-select option {
+      background: #0a0a12;
+      color: rgba(200, 220, 255, 0.8);
+    }
   </style>
 </head>
 <body>
@@ -84,6 +111,9 @@
   <div id="start-screen">
     <h1>D R I F T</h1>
     <p>touch to begin</p>
+    <div id="camera-controls">
+      <select id="camera-select"></select>
+    </div>
   </div>
 
   <div id="debug-hint">D · debug</div>
