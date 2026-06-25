@@ -360,7 +360,10 @@ new p5(function(p) {
     if (p.key === 'b' || p.key === 'B')     { toggleBallMode(); }
   };
 
-  p.mousePressed = function() { begin(); };
+  p.mousePressed = function(e) {
+    if (e && e.target && e.target.closest('#camera-controls')) return;
+    begin();
+  };
 
   p.windowResized = function() { p.resizeCanvas(p.windowWidth, p.windowHeight); };
 });
