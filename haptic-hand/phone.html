@@ -64,38 +64,13 @@
       justify-content: center;
       margin: 0 auto 2rem;
       transition: background 0.1s, border-color 0.1s, box-shadow 0.1s;
-      position: relative;
     }
 
-    #indicator.active {
-      background: rgba(100,190,255,0.18);
-      border-color: rgba(100,190,255,0.55);
-      box-shadow: 0 0 50px rgba(100,190,255,0.25), 0 0 100px rgba(100,190,255,0.1);
-    }
-
-    #indicator.active-button {
-      background: rgba(90,140,255,0.2);
-      border-color: rgba(90,140,255,0.6);
-      box-shadow: 0 0 50px rgba(90,140,255,0.3);
-    }
-
-    #indicator.active-rough {
-      background: rgba(255,160,50,0.18);
-      border-color: rgba(255,160,50,0.5);
-      box-shadow: 0 0 50px rgba(255,160,50,0.2);
-    }
-
-    #indicator.active-soft {
-      background: rgba(200,100,255,0.18);
-      border-color: rgba(200,100,255,0.5);
-      box-shadow: 0 0 50px rgba(200,100,255,0.2);
-    }
-
-    #indicator.active-metal {
-      background: rgba(50,220,210,0.16);
-      border-color: rgba(50,220,210,0.5);
-      box-shadow: 0 0 50px rgba(50,220,210,0.2);
-    }
+    #indicator.active         { background: rgba(100,190,255,0.18); border-color: rgba(100,190,255,0.55); box-shadow: 0 0 50px rgba(100,190,255,0.25), 0 0 100px rgba(100,190,255,0.1); }
+    #indicator.active-button  { background: rgba(90,140,255,0.20);  border-color: rgba(90,140,255,0.60);  box-shadow: 0 0 50px rgba(90,140,255,0.3); }
+    #indicator.active-rough   { background: rgba(255,160,50,0.18);  border-color: rgba(255,160,50,0.50);  box-shadow: 0 0 50px rgba(255,160,50,0.2); }
+    #indicator.active-soft    { background: rgba(200,100,255,0.18); border-color: rgba(200,100,255,0.50); box-shadow: 0 0 50px rgba(200,100,255,0.2); }
+    #indicator.active-metal   { background: rgba(50,220,210,0.16);  border-color: rgba(50,220,210,0.50);  box-shadow: 0 0 50px rgba(50,220,210,0.2); }
 
     #indicator-label {
       font-size: 0.62rem;
@@ -103,14 +78,11 @@
       color: rgba(255,255,255,0.35);
       transition: color 0.1s;
     }
-
-    #indicator.active    #indicator-label,
+    #indicator.active #indicator-label,
     #indicator.active-button #indicator-label,
     #indicator.active-rough  #indicator-label,
     #indicator.active-soft   #indicator-label,
-    #indicator.active-metal  #indicator-label {
-      color: rgba(255,255,255,0.85);
-    }
+    #indicator.active-metal  #indicator-label { color: rgba(255,255,255,0.85); }
 
     #indicator-object {
       font-size: 0.75rem;
@@ -118,7 +90,6 @@
       color: rgba(255,255,255,0.6);
       margin-top: 0.25rem;
       min-height: 1em;
-      transition: color 0.1s;
     }
 
     /* ---- Status ---- */
@@ -129,6 +100,7 @@
       margin-bottom: 2rem;
       line-height: 1.8;
       min-height: 3.2em;
+      white-space: pre-line;
     }
 
     /* ---- Connect form ---- */
@@ -167,15 +139,23 @@
       letter-spacing: 0.22em;
       cursor: pointer;
       border-radius: 3px;
-      transition: background 0.2s;
+      transition: background 0.15s;
       -webkit-tap-highlight-color: transparent;
     }
     .form-btn:active { background: rgba(100,190,255,0.1); }
 
+    /* Scan QR — primary CTA */
+    #scan-btn {
+      border-color: rgba(100,190,255,0.75);
+      color: rgba(100,190,255,1);
+      background: rgba(100,190,255,0.07);
+      font-size: 0.78rem;
+    }
+    #scan-btn:active { background: rgba(100,190,255,0.18); }
+
     #test-btn {
       border-color: rgba(255,255,255,0.15);
       color: rgba(255,255,255,0.35);
-      margin-top: 0.3rem;
     }
     #test-btn:active { background: rgba(255,255,255,0.05); }
 
@@ -197,12 +177,12 @@
       justify-content: space-between;
     }
 
-    /* ---- iOS note ---- */
-    #ios-note {
+    /* ---- Footer note ---- */
+    #footer-note {
       margin-top: 1.8rem;
       font-size: 0.58rem;
       letter-spacing: 0.1em;
-      color: rgba(255,200,80,0.4);
+      color: rgba(255,255,255,0.18);
       max-width: 280px;
       line-height: 1.7;
     }
@@ -210,10 +190,141 @@
     #vibration-status {
       font-size: 0.6rem;
       letter-spacing: 0.12em;
-      margin-top: 0.4rem;
+      margin-bottom: 0.3rem;
     }
     #vibration-status.ok  { color: rgba(80,230,140,0.6); }
     #vibration-status.bad { color: rgba(255,100,80,0.6); }
+
+    /* ===========================================================
+       QR Scanner overlay
+    =========================================================== */
+
+    #scanner-overlay {
+      display: none;  /* shown when scanning */
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 100;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #scanner-overlay.visible { display: flex; }
+
+    /* Live camera preview fills screen */
+    #scan-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.85;
+    }
+
+    /* Hidden canvas used for jsQR frame capture */
+    #scan-canvas { display: none; }
+
+    /* Dark vignette around the reticle */
+    #scan-mask {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        ellipse 55% 55% at 50% 48%,
+        transparent 42%,
+        rgba(0,4,12,0.78) 70%,
+        rgba(0,4,12,0.95) 100%
+      );
+    }
+
+    /* Reticle box */
+    #scan-reticle {
+      position: absolute;
+      width: min(65vw, 240px);
+      height: min(65vw, 240px);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -52%);
+    }
+
+    /* Four corner L-brackets */
+    #scan-reticle::before,
+    #scan-reticle::after,
+    .reticle-br,
+    .reticle-bl {
+      content: '';
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border-color: rgba(100,190,255,0.9);
+      border-style: solid;
+    }
+    #scan-reticle::before { top: 0;    left: 0;  border-width: 2px 0 0 2px; border-radius: 2px 0 0 0; }
+    #scan-reticle::after  { top: 0;    right: 0; border-width: 2px 2px 0 0; border-radius: 0 2px 0 0; }
+    .reticle-br           { bottom: 0; right: 0; border-width: 0 2px 2px 0; border-radius: 0 0 2px 0; }
+    .reticle-bl           { bottom: 0; left: 0;  border-width: 0 0 2px 2px; border-radius: 0 0 0 2px; }
+
+    /* Animated scan line */
+    #scan-line {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      height: 2px;
+      background: linear-gradient(to right,
+        transparent,
+        rgba(100,190,255,0.5) 20%,
+        rgba(100,190,255,0.9) 50%,
+        rgba(100,190,255,0.5) 80%,
+        transparent
+      );
+      border-radius: 1px;
+      animation: scanline 2.2s ease-in-out infinite;
+      box-shadow: 0 0 8px rgba(100,190,255,0.6);
+    }
+    @keyframes scanline {
+      0%   { top: 6px;  opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { top: calc(100% - 8px); opacity: 0; }
+    }
+
+    /* Success flash */
+    #scan-reticle.success::before,
+    #scan-reticle.success::after,
+    #scan-reticle.success .reticle-br,
+    #scan-reticle.success .reticle-bl {
+      border-color: rgba(80,230,140,0.95);
+      transition: border-color 0.15s;
+    }
+
+    /* Prompt text */
+    #scan-prompt {
+      position: absolute;
+      bottom: calc(50% - min(65vw, 240px) / 2 - 52px);
+      left: 0; right: 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+    }
+
+    #scan-cancel-btn {
+      position: absolute;
+      bottom: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0.65rem 2.5rem;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.5);
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.22em;
+      cursor: pointer;
+      border-radius: 3px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #scan-cancel-btn:active { background: rgba(255,255,255,0.06); }
   </style>
 </head>
 <body>
@@ -226,11 +337,15 @@
     <div id="indicator-object"></div>
   </div>
 
-  <div id="status">connect to the computer app<br>to receive haptic feedback</div>
+  <div id="status">scan the QR on the computer screen\nor enter the peer ID manually</div>
 
   <div id="connect-form">
+    <!-- Primary: QR scan -->
+    <button class="form-btn" id="scan-btn">⬛ SCAN QR CODE</button>
+
+    <!-- Manual fallback -->
     <input type="text" id="peer-input"
-           placeholder="computer peer ID"
+           placeholder="or type peer ID manually"
            autocomplete="off" autocorrect="off"
            autocapitalize="off" spellcheck="false">
     <button class="form-btn" id="connect-btn">CONNECT</button>
@@ -239,12 +354,27 @@
 
   <div id="log"></div>
 
-  <div id="ios-note">
+  <div id="footer-note">
     <div id="vibration-status"></div>
     hold your phone while using the computer app<br>
     your hand controls the virtual objects
   </div>
 
+  <!-- ---- QR Scanner overlay ---- -->
+  <div id="scanner-overlay">
+    <video id="scan-video" autoplay playsinline muted></video>
+    <canvas id="scan-canvas"></canvas>
+    <div id="scan-mask"></div>
+    <div id="scan-reticle">
+      <div class="reticle-br"></div>
+      <div class="reticle-bl"></div>
+      <div id="scan-line"></div>
+    </div>
+    <div id="scan-prompt">align QR with frame</div>
+    <button id="scan-cancel-btn">CANCEL</button>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 'use strict';
@@ -253,82 +383,91 @@
 // State
 // ============================================================
 
-let peer = null;
-let conn = null;
+let peer         = null;
+let conn         = null;
 let targetPeerId = null;
 let reconnectTimer = null;
-let hapticCount = 0;
+let hapticCount  = 0;
+
+// Scanner state
+let scannerActive = false;
+let scanStream    = null;
+let scanRAF       = null;
 
 // ============================================================
 // DOM refs
 // ============================================================
 
-const indicator     = document.getElementById('indicator');
-const indicatorLbl  = document.getElementById('indicator-label');
-const indicatorObj  = document.getElementById('indicator-object');
-const statusEl      = document.getElementById('status');
-const form          = document.getElementById('connect-form');
-const input         = document.getElementById('peer-input');
-const connectBtn    = document.getElementById('connect-btn');
-const testBtn       = document.getElementById('test-btn');
-const logEl         = document.getElementById('log');
-const vibStatusEl   = document.getElementById('vibration-status');
+const indicator    = document.getElementById('indicator');
+const indicatorLbl = document.getElementById('indicator-label');
+const indicatorObj = document.getElementById('indicator-object');
+const statusEl     = document.getElementById('status');
+const form         = document.getElementById('connect-form');
+const input        = document.getElementById('peer-input');
+const connectBtn   = document.getElementById('connect-btn');
+const scanBtn      = document.getElementById('scan-btn');
+const testBtn      = document.getElementById('test-btn');
+const logEl        = document.getElementById('log');
+const vibStatusEl  = document.getElementById('vibration-status');
+
+// Scanner overlay refs
+const scanOverlay  = document.getElementById('scanner-overlay');
+const scanVideo    = document.getElementById('scan-video');
+const scanCanvas   = document.getElementById('scan-canvas');
+const scanCtx      = scanCanvas.getContext('2d', { willReadFrequently: true });
+const reticle      = document.getElementById('scan-reticle');
+const scanPrompt   = document.getElementById('scan-prompt');
+const scanCancelBtn = document.getElementById('scan-cancel-btn');
 
 // ============================================================
-// Vibration support check
+// Vibration support
 // ============================================================
 
 const hasVibration = 'vibrate' in navigator;
 
 if (hasVibration) {
-  vibStatusEl.textContent = '● vibration API available';
-  vibStatusEl.className = 'ok';
+  vibStatusEl.textContent  = '● vibration API available';
+  vibStatusEl.className    = 'ok';
 } else {
-  vibStatusEl.textContent = '● vibration not supported (iOS Safari)';
-  vibStatusEl.className = 'bad';
-  document.getElementById('ios-note').style.color = 'rgba(255,120,80,0.5)';
+  vibStatusEl.textContent  = '● vibration not supported (iOS Safari)';
+  vibStatusEl.className    = 'bad';
 }
 
 // ============================================================
 // Haptic trigger
 // ============================================================
 
-// Object-type → indicator CSS class mapping
 const OBJ_CLASS = {
-  'push-a':  'active-button',
-  'push-b':  'active-button',
-  'rough':   'active-rough',
-  'soft':    'active-soft',
-  'metal':   'active-metal',
+  'push-a': 'active-button',
+  'push-b': 'active-button',
+  'rough':  'active-rough',
+  'soft':   'active-soft',
+  'metal':  'active-metal',
 };
 
-// Friendly names for display
 const OBJ_NAMES = {
-  'push-a':  'PUSH BUTTON',
-  'push-b':  'TRIGGER',
-  'rough':   'ROUGH SURFACE',
-  'soft':    'SOFT SURFACE',
-  'metal':   'METAL SURFACE',
+  'push-a': 'PUSH BUTTON',
+  'push-b': 'TRIGGER',
+  'rough':  'ROUGH SURFACE',
+  'soft':   'SOFT SURFACE',
+  'metal':  'METAL SURFACE',
 };
 
 function triggerHaptic(pattern, objectId) {
-  if (hasVibration) {
-    navigator.vibrate(pattern);
-  }
+  if (hasVibration) navigator.vibrate(pattern);
 
-  // Visual feedback
   const cls = OBJ_CLASS[objectId] || 'active';
-  indicator.className = cls;
+  indicator.className      = cls;
   indicatorLbl.textContent = 'HAPTIC';
   indicatorObj.textContent = OBJ_NAMES[objectId] || objectId || '';
 
   const duration = Array.isArray(pattern)
     ? pattern.reduce((a, b) => a + b, 0)
-    : pattern;
+    : Number(pattern);
 
   setTimeout(() => {
     if (conn && conn.open) {
-      indicator.className = '';
+      indicator.className      = '';
       indicatorLbl.textContent = 'CONNECTED';
       indicatorObj.textContent = '';
     }
@@ -341,23 +480,127 @@ function triggerHaptic(pattern, objectId) {
 function appendLog(objectId, pattern) {
   const entry = document.createElement('div');
   entry.className = 'log-entry';
-
   const name = document.createElement('span');
   name.textContent = OBJ_NAMES[objectId] || objectId || '?';
-
-  const pat = document.createElement('span');
+  const pat  = document.createElement('span');
   pat.textContent = Array.isArray(pattern) ? '[' + pattern.join(',') + ']' : pattern;
-
   entry.appendChild(name);
   entry.appendChild(pat);
   logEl.insertBefore(entry, logEl.firstChild);
-
-  // Keep at most 5 lines
   while (logEl.children.length > 5) logEl.removeChild(logEl.lastChild);
 }
 
 // ============================================================
-// PeerJS setup
+// QR Scanner
+// ============================================================
+
+async function startScanner() {
+  if (scannerActive) return;
+
+  // Request rear camera
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
+      audio: false,
+    });
+  } catch (e) {
+    setStatus('camera access denied\nplease type peer ID manually');
+    return;
+  }
+
+  scanStream   = stream;
+  scannerActive = true;
+  scanVideo.srcObject = stream;
+  await scanVideo.play();
+
+  scanOverlay.classList.add('visible');
+  reticle.classList.remove('success');
+  scanPrompt.textContent = 'align QR with frame';
+
+  tickScanner();
+}
+
+function tickScanner() {
+  if (!scannerActive) return;
+
+  if (scanVideo.readyState >= 2) {
+    const vw = scanVideo.videoWidth;
+    const vh = scanVideo.videoHeight;
+
+    if (vw > 0 && vh > 0) {
+      // Only decode the center crop — faster and avoids background confusion
+      const size   = Math.min(vw, vh) * 0.65;
+      const srcX   = (vw - size) / 2;
+      const srcY   = (vh - size) / 2;
+      const TARGET = 400; // decode at 400×400 max
+
+      scanCanvas.width  = TARGET;
+      scanCanvas.height = TARGET;
+      scanCtx.drawImage(scanVideo, srcX, srcY, size, size, 0, 0, TARGET, TARGET);
+
+      const imageData = scanCtx.getImageData(0, 0, TARGET, TARGET);
+      const result    = jsQR(imageData.data, TARGET, TARGET, {
+        inversionAttempts: 'dontInvert',
+      });
+
+      if (result && result.data) {
+        handleQRResult(result.data);
+        return; // stop ticking after success
+      }
+    }
+  }
+
+  // ~20fps decode loop
+  scanRAF = setTimeout(tickScanner, 50);
+}
+
+function handleQRResult(rawText) {
+  let peerId = null;
+
+  // Try parsing as URL with ?peer= param (standard haptic-hand link)
+  try {
+    const url = new URL(rawText);
+    peerId = url.searchParams.get('peer');
+  } catch (_) { /* not a URL */ }
+
+  // Fallback: treat raw text as peer ID if it looks like one (alphanumeric, ~36 chars)
+  if (!peerId && /^[a-zA-Z0-9_-]{8,}$/.test(rawText.trim())) {
+    peerId = rawText.trim();
+  }
+
+  if (!peerId) {
+    // Didn't recognise — keep scanning
+    tickScanner();
+    return;
+  }
+
+  // Flash reticle green and confirm
+  reticle.classList.add('success');
+  scanPrompt.textContent = 'connected!';
+  if (hasVibration) navigator.vibrate([30, 20, 60]);
+
+  setTimeout(() => stopScanner(), 400);
+
+  input.value = peerId;
+  connectTo(peerId);
+}
+
+function stopScanner() {
+  scannerActive = false;
+  clearTimeout(scanRAF);
+
+  if (scanStream) {
+    scanStream.getTracks().forEach(t => t.stop());
+    scanStream = null;
+  }
+
+  scanVideo.srcObject = null;
+  scanOverlay.classList.remove('visible');
+}
+
+// ============================================================
+// PeerJS
 // ============================================================
 
 function initPeer() {
@@ -368,8 +611,8 @@ function initPeer() {
   });
 
   peer.on('error', e => {
-    setStatus('peer network error\n' + e.type);
     console.warn('peer error', e);
+    setStatus('peer network error\n' + e.type);
   });
 }
 
@@ -377,7 +620,6 @@ function connectTo(peerId) {
   if (!peer) return;
   clearTimeout(reconnectTimer);
   targetPeerId = peerId;
-
   setStatus('connecting…');
 
   conn = peer.connect(peerId, { reliable: true });
@@ -385,38 +627,27 @@ function connectTo(peerId) {
   conn.on('open', () => {
     setStatus('connected\nhold your phone and\nmove your hand');
     form.style.display = 'none';
-
-    indicator.className = '';
+    indicator.className      = '';
     indicatorLbl.textContent = 'CONNECTED';
     indicatorObj.textContent = '';
-
-    // Confirmation buzz
     if (hasVibration) navigator.vibrate([40, 30, 40]);
   });
 
   conn.on('data', data => {
-    if (data && data.type === 'haptic') {
-      triggerHaptic(data.pattern, data.objectId);
-    }
+    if (data && data.type === 'haptic') triggerHaptic(data.pattern, data.objectId);
   });
 
-  conn.on('close', () => {
-    handleDisconnect();
-  });
-
-  conn.on('error', () => {
-    handleDisconnect();
-  });
+  conn.on('close', () => handleDisconnect());
+  conn.on('error', () => handleDisconnect());
 }
 
 function handleDisconnect() {
   conn = null;
-  indicator.className = '';
+  indicator.className      = '';
   indicatorLbl.textContent = 'WAITING';
   indicatorObj.textContent = '';
   setStatus('disconnected\nauto-reconnecting in 4s…');
   form.style.display = 'flex';
-
   if (targetPeerId) {
     reconnectTimer = setTimeout(() => connectTo(targetPeerId), 4000);
   }
@@ -430,10 +661,12 @@ function setStatus(msg) {
 // UI events
 // ============================================================
 
+scanBtn.addEventListener('click', () => startScanner());
+scanCancelBtn.addEventListener('click', () => stopScanner());
+
 connectBtn.addEventListener('click', () => {
   const id = input.value.trim();
-  if (!id) return;
-  connectTo(id);
+  if (id) connectTo(id);
 });
 
 input.addEventListener('keydown', e => {
@@ -443,19 +676,19 @@ input.addEventListener('keydown', e => {
 testBtn.addEventListener('click', () => {
   if (hasVibration) {
     navigator.vibrate([50, 30, 100, 30, 50]);
-    indicator.className = 'active';
+    indicator.className      = 'active';
     indicatorLbl.textContent = 'TEST';
     indicatorObj.textContent = 'vibrating…';
     setTimeout(() => {
-      indicator.className = '';
+      indicator.className      = '';
       indicatorLbl.textContent = conn && conn.open ? 'CONNECTED' : 'WAITING';
       indicatorObj.textContent = '';
     }, 300);
   } else {
+    indicator.className      = 'active';
     indicatorLbl.textContent = 'NO VIBRATE';
-    indicator.className = 'active';
     setTimeout(() => {
-      indicator.className = '';
+      indicator.className      = '';
       indicatorLbl.textContent = 'WAITING';
     }, 800);
   }
@@ -470,6 +703,7 @@ const urlPeer   = urlParams.get('peer');
 
 if (urlPeer) {
   input.value = urlPeer;
+  setTimeout(() => connectTo(urlPeer), 1200);
 }
 
 // ============================================================
@@ -477,11 +711,6 @@ if (urlPeer) {
 // ============================================================
 
 initPeer();
-
-// Auto-connect slightly after peer is ready
-if (urlPeer) {
-  setTimeout(() => connectTo(urlPeer), 1200);
-}
 </script>
 </body>
 </html>
